@@ -1,0 +1,212 @@
+import os  # OSモジュールをインポートして環境変数にアクセスするために使用します
+import requests  # HTTPリクエストを行うためのrequestsモジュールをインポートします
+
+def main(event):
+    # 環境変数からHubSpotのアクセストークンを取得します
+    access_token = os.getenv('HubSpotSelf')
+    headers = {  # リクエストヘッダーを設定します
+        "Content-Type": "application/json",  # リクエストのコンテンツタイプを指定します
+        "Authorization": f"Bearer {access_token}"  # 認証ヘッダーを設定します
+    }
+    
+    # 入力プロパティから請求先コードとレコードIDを取得します
+    record_id = event['inputFields']['source_record_id']  # 関連付けの元のレコード番号
+    source_property_with_association_key = event['inputFields'].get('source_property_with_association_key')  # 関連付けたい先のキーが入っている、関連付けの元側のプロパティを指定します。
+    
+    # 関連付けに使用する変数を設定します
+    property_name = 'bugyo_tokuisaki_code_unique'  # 関連付け先のキーのプロパティ名。プロパティ一覧から探せます。
+    from_object_type = 'companies'  # 関連付けの元のオブジェクトタイプ。オブジェクト一覧: companies（会社）, contacts（連絡先）, deals（取引）, tickets（チケット）, line_items（商品）, quotes（見積もり）, products（製品）, calls（通話）, emails（メール）, tasks（タスク）, meetings（会議）, notes（ノート）
+    to_object_type = 'companies'  # 関連付け先のオブジェクトタイプ。オブジェクト一覧: companies（会社）, contacts（連絡先）, deals（取引）, tickets（チケット）, line_items（商品）, quotes（見積もり）, products（製品）, calls（通話）, emails（メール）, tasks（タスク）, meetings（会議）, notes（ノート）
+    association_type_id = 12  # 該当関連付けの「APIの詳細」に記載がある関連付けのタイプID。HubSpotが発行します。
+    association_label = '請求元'  # 該当関連付けの「APIの詳細」に記載がある関連付けのラベル。HubSpotが発行します。
+    source_name = '請求元'  # デバッグ用表示に使う関連付けの元のラベルの名前 *任意
+    target_name = '請求先'  # デバッグ用表示に使う関連付け先のラベルの名前 *任意
+
+    # 関連付けの方向と削除フラグを設定します（関連付け元と先のオブジェクトタイプが同じ場合のみ機能します）
+    if from_object_type == to_object_type:
+        direction = event['inputFields'].get('direction', 0)  # 関連付け方向を逆方向にする場合は1。デフォルトは0（逆方向）
+        delete_reverse = event['inputFields'].get('delete_reverse', 0)  # 逆方向の関連付けを削除するかどうかのフラグ。デフォルトは0
+    else:
+        direction = 0  # デフォルトは0（順方向）
+        delete_reverse = 0  # 逆方向の関連付けを削除しない
+
+    try:
+        # 既存の関連付けを確認するためのURLを設定します
+        after = None
+        to_delete = []
+        
+        while True:
+            list_url = f"https://api.hubapi.com/crm/v4/associations/{from_object_type}/{record_id}/batch/read"
+            list_request = {
+                "inputs": [
+                    {
+                        "id": str(record_id),
+                        "after": after
+                    }
+                ]
+            }
+            list_response = requests.post(list_url, headers=headers, json=list_request)  # 既存の関連付けを取得します
+            list_result = list_response.json()  # 取得した結果をJSON形式で解析します
+
+            debug_message = f"既存の関連付け: {list_result}"  # デバッグメッセージに既存の関連付け情報を追加します
+
+            if 'results' in list_result:  # 結果が存在する場合
+                to_delete.extend([
+                    {
+                        "from": {"id": str(record_id)},  # 削除する元のIDを設定します
+                        "to": [{"id": str(assoc['toObjectId'])}]  # 削除する対象のIDを設定します
+                    }
+                    for assoc in list_result['results']
+                    if any(
+                        atype['typeId'] == association_type_id or  # 順方向のタイプIDに一致する場合
+                        (delete_reverse == 1 and atype['typeId'] == association_type_id + 1)  # 逆方向のタイプIDに一致する場合
+                        for atype in assoc['to'][0]['associationTypes']
+                    )
+                ])
+            
+            # ページネーションの次のページを確認
+            paging_info = list_result['results'][0].get('paging', {}).get('next', {})
+            after = paging_info.get('after')
+            if not after:
+                break
+
+        if to_delete:  # 削除対象が存在する場合
+            delete_url = f"https://api.hubapi.com/crm/v4/associations/{from_object_type}/{to_object_type}/batch/archive"
+            delete_request = {"inputs": to_delete}  # 削除リクエストのボディを設定します
+            delete_response = requests.post(delete_url, headers=headers, json=delete_request)  # 削除リクエストを送信します
+            debug_message += f", 削除リクエスト: {delete_request}, 削除結果: {delete_response.status_code}, 削除応答: {delete_response.text}"  # デバッグメッセージに削除リクエスト情報を追加します
+            
+            if delete_response.status_code not in [200, 202, 204]:  # 削除が成功したか確認します
+                return {
+                    "outputFields": {
+                        "message": f"既存の関連付けの削除に失敗しました。",
+                        "debug": debug_message
+                    }
+                }
+
+            # 削除後の確認を行います
+            confirm_list_response = requests.post(list_url, headers=headers, json=list_request)  # 再度関連付けを取得します
+            confirm_list_result = confirm_list_response.json()  # 取得結果をJSON形式で解析します
+            debug_message += f", 削除後の確認: {confirm_list_result}"  # デバッグメッセージに削除後の確認情報を追加します
+            
+            if any(
+                atype['typeId'] == association_type_id or 
+                (delete_reverse == 1 and atype['typeId'] == association_type_id + 1)
+                for assoc in confirm_list_result.get('results', [])
+                for atype in assoc['to'][0]['associationTypes']
+            ):  # 削除が完全に行われたか確認します
+                return {
+                    "outputFields": {
+                        "message": f"関連付けの削除が確認できませんでした。",
+                        "debug": debug_message
+                    }
+                }
+        
+        # source_property_with_association_key が Null でない場合のみ会社の検索と新しい関連付けを作成します
+        if source_property_with_association_key:
+            search_url = f"https://api.hubapi.com/crm/v3/objects/{to_object_type}/search"  # 会社を検索するためのURLを設定します
+            search_request = {
+                "filterGroups": [
+                    {
+                        "filters": [
+                            {
+                                "propertyName": property_name,
+                                "operator": "EQ",
+                                "value": source_property_with_association_key  # 請求先コードで会社を検索します
+                            }
+                        ]
+                    }
+                ],
+                "limit": 100
+            }
+            
+            target_ids = []
+            has_more = True
+            after = None
+            
+            while has_more:
+                if after:
+                    search_request['after'] = after
+                
+                search_response = requests.post(search_url, headers=headers, json=search_request)  # 検索リクエストを送信します
+                search_result = search_response.json()  # 検索結果をJSON形式で解析します
+                
+                if search_result['total'] == 0:  # 検索結果が存在しない場合
+                    return {
+                        "outputFields": {
+                            "message": f"一致する{target_name}が見つかりませんでした。",
+                            "debug": debug_message
+                        }
+                    }
+                
+                target_ids.extend([result['id'] for result in search_result['results']])
+                after = search_result.get('paging', {}).get('next', {}).get('after')
+                has_more = after is not None
+            
+            debug_message += f", 検索結果: {target_ids}"  # デバッグメッセージに検索結果を追加します
+            
+            # 各対象IDに対して関連付けを行います
+            for target_id in target_ids:
+                # 方向に応じて関連付けを設定します
+                if direction == 1:  # 逆方向の場合
+                    association_url = f"https://api.hubapi.com/crm/v4/objects/{to_object_type}/{target_id}/associations/{from_object_type}/{record_id}"
+                    source_name, target_name = target_name, source_name  # ソースとターゲットを入れ替えます
+                else:  # 順方向の場合
+                    association_url = f"https://api.hubapi.com/crm/v4/objects/{from_object_type}/{record_id}/associations/{to_object_type}/{target_id}"
+                
+                association_request = [
+                    {
+                        "associationCategory": "USER_DEFINED",
+                        "associationTypeId": association_type_id  # 関連付けタイプIDを設定します
+                    }
+                ]
+                
+                association_response = requests.put(association_url, headers=headers, json=association_request)  # 関連付けリクエストを送信します
+                if association_response.status_code not in [200, 202, 204]:
+                    debug_message += f", 関連付け失敗: {association_response.status_code}, 応答: {association_response.text}"  # デバッグメッセージに関連付け失敗情報を追加します
+                    return {
+                        "outputFields": {
+                            "message": f"{source_name}({record_id}) と {target_name}({target_id}) の関連付けに失敗しました。",
+                            "debug": debug_message
+                        }
+                    }
+                else:
+                    association_result = association_response.json()  # 結果をJSON形式で解析します
+                    debug_message += f", 関連付けリクエスト: {association_request}, 関連付け結果: {association_result}"  # デバッグメッセージに関連付け結果を追加します
+            
+            return {
+                "outputFields": {
+                    "message": f"{source_name}({record_id}) と {target_name}({', '.join(target_ids)}) の関連付けが成功しました。",
+                    "debug": debug_message  # 関連付けの成功メッセージとデバッグ情報を返します
+                }
+            }
+        
+        # source_property_with_association_key が Null の場合の処理を行います
+        return {
+            "outputFields": {
+                "message": f"source_property_with_association_key が Null のため、検索と関連付けはスキップされました。",  # source_property_with_association_keyがNullの場合のメッセージを設定します
+                "debug": debug_message  # デバッグメッセージを設定します
+            }
+        }
+        
+    except Exception as e:  # 例外が発生した場合の処理を行います
+        return {
+            "outputFields": {
+                "message": f"エラーが発生しました: {e}",  # エラーメッセージを設定します
+                "debug": debug_message if 'debug_message' in locals() else "デバッグ情報なし"  # デバッグメッセージを返します
+            }
+        }
+
+# テスト用のイベントデータ
+event = {
+    "inputFields": {
+        "source_record_id": "12345",
+        "source_property_with_association_key": "some_value",
+        "direction": 0,
+        "delete_reverse": 0
+    }
+}
+
+# メイン関数の呼び出し
+result = main(event)
+print(result)
