@@ -180,7 +180,7 @@ def main(event):
                     {
                         "filters": [
                             {
-                                "propertyName":　property_name,
+                                "propertyName": property_name,
                                 "operator": "EQ",
                                 "value": source_property_with_association_key  # 請求先コードで会社を検索します
                             }
