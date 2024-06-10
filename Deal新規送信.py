@@ -2,60 +2,59 @@ import pandas as pd
 import requests
 import json
 
-# ’è”
-BATCH_SIZE = 100  # ˆê“x‚É‘—M‚·‚éƒoƒbƒ`‚ÌƒTƒCƒY
+# å®šæ•°
+BATCH_SIZE = 100  # ä¸€åº¦ã«é€ä¿¡ã™ã‚‹ãƒãƒƒãƒã®ã‚µã‚¤ã‚º
 
-# CSVƒtƒ@ƒCƒ‹‚ğ“Ç‚İ‚ŞŠÖ”
+# CSVãƒ•ã‚¡ã‚¤ãƒ«ã‚’èª­ã¿è¾¼ã‚€é–¢æ•°
 def read_csv(file_path):
     return pd.read_csv(file_path, dtype=str)
 
-# ƒf[ƒ^‚ğ•ÏŠ·‚·‚éŠÖ”
+# ãƒ‡ãƒ¼ã‚¿ã‚’å¤‰æ›ã™ã‚‹é–¢æ•°
 def transform_data(df):
     properties_mapping = {
-        "æˆøƒXƒe[ƒW": "dealstage",
-        "ƒpƒCƒvƒ‰ƒCƒ“": "pipeline",
-        "‡Œv”„ã": "amount",
-        "ƒNƒ[ƒY“ú": "closedate",
-        "æˆø–¼": "dealname",
-        "•”–åƒR[ƒh": "bugyo_bumon_code",
-        "’¼‘—æ–ğE": "bugyo_chokusosaki_yakushoku",
-        "’¼‘—æƒR[ƒh": "bugyo_chokusou_saki_code",
-        "’¼‘—æ“d˜b”Ô†": "bugyo_chokusou_saki_denwa_bangou",
-        "’¼‘—æFAX”Ô†": "bugyo_chokusou_saki_fax_bangou",
-        "’¼‘—æZŠ1": "bugyo_chokusou_saki_juusho1",
-        "’¼‘—æZŠ2": "bugyo_chokusou_saki_juusho2",
-        "’¼‘—æŒhÌ": "bugyo_chokusou_saki_keishou",
-        "’¼‘—æ–¼1": "bugyo_chokusou_saki_mei1",
-        "’¼‘—æ–¼2": "bugyo_chokusou_saki_mei2",
-        "’¼‘—æ’S“–Ò": "bugyo_chokusou_saki_tantousha",
-        "’¼‘—æ—X•Ö”Ô†": "bugyo_chokusou_saki_yuubin_bangou",
-        "“`•[ƒtƒ‰ƒOƒR[ƒh": "bugyo_denpyou_flag_code",
-        "ó’ID": "bugyo_juchuu_id",
-        "ó’–¾×ID": "bugyo_juchuu_meisai_id",
-        "‰ñûŠú“ú": "bugyo_kaishuu_kijitsu",
-        "“ü‹à“E—v": "bugyo_nyuukin_tekiyou",
-        "ƒvƒƒWƒFƒNƒgƒR[ƒh": "bugyo_project_code",
-        "¿‹æƒR[ƒh": "bugyo_seikyuu_saki_code",
-        "M”Ì‰ïĞƒR[ƒh": "bugyo_shinpan_kaisha_code",
-        "M”Ìè”—¿": "bugyo_shinpan_tesuuryou",
-        "C³“ú•t": "bugyo_shuusei_hiduke",
-        "C³Ò–¼": "bugyo_shuuseisha_mei",
-        "’S“–ÒƒR[ƒh": "bugyo_tantousha_code",
-        "“E—v": "bugyo_tekiyou",
-        "“E—v2": "bugyo_tekiyou2",
-        "“E—v3": "bugyo_tekiyou3",
-        "“¾ˆÓæƒR[ƒh": "bugyo_tokuisaki_code",
-        "“¾ˆÓæ–¼1": "bugyo_tokuisaki_mei1",
-        "“¾ˆÓæ–¼2": "bugyo_tokuisaki_mei2",
-        "“¾ˆÓæ’S“–Ò": "bugyo_tokuisaki_tantousha",
-        "“o˜^“ú•t": "bugyo_touroku_hiduke",
-        "“o˜^Ò–¼": "bugyo_tourokusha_mei",
-        "”„ã“ú•t": "bugyo_uriage_hiduke",
-        "ÅŠz’Ê’mƒR[ƒh": "bugyo_zeigaku_tsuuchi_code",
-        "“`•[No.": "no_____",
+        "å–å¼•ã‚¹ãƒ†ãƒ¼ã‚¸": "dealstage",
+        "ãƒ‘ã‚¤ãƒ—ãƒ©ã‚¤ãƒ³": "pipeline",
+        "åˆè¨ˆå£²ä¸Š": "amount",
+        "ã‚¯ãƒ­ãƒ¼ã‚ºæ—¥": "closedate",
+        "å–å¼•å": "dealname",
+        "éƒ¨é–€ã‚³ãƒ¼ãƒ‰": "bugyo_bumon_code",
+        "ç›´é€å…ˆå½¹è·": "bugyo_chokusosaki_yakushoku",
+        "ç›´é€å…ˆã‚³ãƒ¼ãƒ‰": "bugyo_chokusou_saki_code",
+        "ç›´é€å…ˆé›»è©±ç•ªå·": "bugyo_chokusou_saki_denwa_bangou",
+        "ç›´é€å…ˆFAXç•ªå·": "bugyo_chokusou_saki_fax_bangou",
+        "ç›´é€å…ˆä½æ‰€1": "bugyo_chokusou_saki_juusho1",
+        "ç›´é€å…ˆä½æ‰€2": "bugyo_chokusou_saki_juusho2",
+        "ç›´é€å…ˆæ•¬ç§°": "bugyo_chokusou_saki_keishou",
+        "ç›´é€å…ˆå1": "bugyo_chokusou_saki_mei1",
+        "ç›´é€å…ˆå2": "bugyo_chokusou_saki_mei2",
+        "ç›´é€å…ˆæ‹…å½“è€…": "bugyo_chokusou_saki_tantousha",
+        "ç›´é€å…ˆéƒµä¾¿ç•ªå·": "bugyo_chokusou_saki_yuubin_bangou",
+        "ä¼ç¥¨ãƒ•ãƒ©ã‚°ã‚³ãƒ¼ãƒ‰": "bugyo_denpyou_flag_code",
+        "å—æ³¨ID": "bugyo_juchuu_id",
+        "å—æ³¨æ˜ç´°ID": "bugyo_juchuu_meisai_id",
+        "å›åæœŸæ—¥": "bugyo_kaishuu_kijitsu",
+        "å…¥é‡‘æ‘˜è¦": "bugyo_nyuukin_tekiyou",
+        "ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã‚³ãƒ¼ãƒ‰": "bugyo_project_code",
+        "è«‹æ±‚å…ˆã‚³ãƒ¼ãƒ‰": "bugyo_seikyuu_saki_code",
+        "ä¿¡è²©ä¼šç¤¾ã‚³ãƒ¼ãƒ‰": "bugyo_shinpan_kaisha_code",
+        "ä¿¡è²©æ‰‹æ•°æ–™": "bugyo_shinpan_tesuuryou",
+        "ä¿®æ­£æ—¥ä»˜": "bugyo_shuusei_hiduke",
+        "ä¿®æ­£è€…å": "bugyo_shuuseisha_mei",
+        "æ‹…å½“è€…ã‚³ãƒ¼ãƒ‰": "bugyo_tantousha_code",
+        "æ‘˜è¦": "bugyo_tekiyou",
+        "æ‘˜è¦2": "bugyo_tekiyou2",
+        "æ‘˜è¦3": "bugyo_tekiyou3",
+        "å¾—æ„å…ˆã‚³ãƒ¼ãƒ‰": "bugyo_tokuisaki_code",
+        "å¾—æ„å…ˆå1": "bugyo_tokuisaki_mei1",
+        "å¾—æ„å…ˆå2": "bugyo_tokuisaki_mei2",
+        "å¾—æ„å…ˆæ‹…å½“è€…": "bugyo_tokuisaki_tantousha",
+        "ç™»éŒ²æ—¥ä»˜": "bugyo_touroku_hiduke",
+        "ç™»éŒ²è€…å": "bugyo_tourokusha_mei",
+        "å£²ä¸Šæ—¥ä»˜": "bugyo_uriage_hiduke",
+        "ç¨é¡é€šçŸ¥ã‚³ãƒ¼ãƒ‰": "bugyo_zeigaku_tsuuchi_code",
+        "ä¼ç¥¨No.": "no_____",
         "sha512": "sha512",
-        "sha512_origin_key_": "sha512_origin_key_",
-        "sha512_removed_update_date": "sha512_removed_update_date"
+        "sha512_contents": "sha512_contents"
     }
 
     deals = []
@@ -66,7 +65,7 @@ def transform_data(df):
         deals.append({"properties": properties})
     return deals
 
-# ƒoƒbƒ`‚ğ‘—M‚·‚éŠÖ”
+# ãƒãƒƒãƒã‚’é€ä¿¡ã™ã‚‹é–¢æ•°
 def send_batch(deals_batch):
     url = 'https://api.hubapi.com/crm/v3/objects/deals/batch/create'
     headers = {
@@ -77,18 +76,18 @@ def send_batch(deals_batch):
     response = requests.post(url, headers=headers, data=json.dumps(data))
     return response.json()
 
-# ƒƒCƒ“ŠÖ”
+# ãƒ¡ã‚¤ãƒ³é–¢æ•°
 def main(file_path):
     df = read_csv(file_path)
     all_deals = transform_data(df)
 
-    # ƒoƒbƒ`ˆ—
+    # ãƒãƒƒãƒå‡¦ç†
     for i in range(0, len(all_deals), BATCH_SIZE):
         batch = all_deals[i:i+BATCH_SIZE]
         response = send_batch(batch)
         print(f"Batch {i//BATCH_SIZE + 1} response: ", response)
 
-# Às
+# å®Ÿè¡Œ
 if __name__ == "__main__":
-    csv_file_path = 'C:\Users\Administrator\OneDrive - Š”®‰ïĞƒŒƒ{ƒ‹\OBCsalesdata/V‹K‚¾‚¯4.csv'  # CSVƒtƒ@ƒCƒ‹‚ÌƒpƒX‚ğw’è
+    csv_file_path = 'C:\Users\Administrator\OneDrive - æ ªå¼ä¼šç¤¾ãƒ¬ãƒœãƒ«\OBCsalesdata/æ–°è¦ã ã‘4.csv'  # CSVãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ‘ã‚¹ã‚’æŒ‡å®š
     main(csv_file_path)
