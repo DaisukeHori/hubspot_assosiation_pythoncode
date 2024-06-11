@@ -134,7 +134,7 @@ def transform_data(df):
 def send_batch(deals_batch):
     url = 'https://api.hubapi.com/crm/v3/objects/deals/batch/create'
     headers = {
-        'Authorization': 'Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        'Authorization': 'Bearer xxxxxxxxxxxxxxxxxxxxxxxx0',
         'Content-Type': 'application/json'
     }
     data = {"inputs": deals_batch}
